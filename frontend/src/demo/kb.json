@@ -1,0 +1,289 @@
+{
+ "generator": "docmind export-demo-kb",
+ "chunk_size": 700,
+ "chunk_overlap": 100,
+ "documents": [
+  {
+   "id": "demo-01",
+   "title": "Lumenfold Labs Employee Handbook",
+   "source": "01-employee-handbook.md",
+   "lang": "en",
+   "chunks": [
+    {
+     "id": "ch_496a72310c2396a9",
+     "text": "> Lumenfold Labs is a fictional company invented for the DocMind demo. Any resemblance to a real organisation is coincidental.",
+     "heading": "Lumenfold Labs Employee Handbook",
+     "ordinal": 0
+    },
+    {
+     "id": "ch_ddd950ffaabdfaa7",
+     "text": "Our core collaboration hours are 11:00 to 16:00 in your local time zone. Outside core hours you can organise your day as you like, as long as your team knows when you are reachable. Meetings should not be scheduled outside core hours without the attendees' agreement.\n\nEvery team keeps one \"focus day\" per week (usually Wednesday) without recurring meetings.",
+     "heading": "Working hours",
+     "ordinal": 1
+    },
+    {
+     "id": "ch_50806df3a4b38d8a",
+     "text": "Lumenfold Labs is remote-first. You may work from anywhere in your country of employment. Working from another country for more than 30 days in a calendar year requires approval from People Operations, because of tax and insurance rules.\n\nThe Lisbon and Tbilisi studios are open to everyone on weekdays from 08:00 to 20:00. Desks are booked in the Studio app one day in advance.",
+     "heading": "Remote and hybrid work",
+     "ordinal": 2
+    },
+    {
+     "id": "ch_851fa0496b2461be",
+     "text": "Full-time employees receive 25 working days of paid vacation per calendar year. Part-time employees receive a pro-rated amount. Vacation requests are submitted in the HR portal at least two weeks in advance for absences longer than three days.\n\nUp to 5 unused vacation days can be carried over to the next year. Carried-over days must be used before March 31; after that date they expire.",
+     "heading": "Time off › Paid vacation",
+     "ordinal": 3
+    },
+    {
+     "id": "ch_1dfc561329d93924",
+     "text": "If you are ill, notify your manager before 10:00 on the first day of absence. You do not need a doctor's note for absences of up to three consecutive days. For longer absences, upload the note to the HR portal within five working days.",
+     "heading": "Time off › Sick leave",
+     "ordinal": 4
+    },
+    {
+     "id": "ch_611712cd45872381",
+     "text": "You follow the public holidays of your country of employment. In addition, the whole company takes two \"recharge days\" per year, announced at least a quarter in advance.",
+     "heading": "Time off › Public holidays and recharge days",
+     "ordinal": 5
+    },
+    {
+     "id": "ch_821362d752ea6e7f",
+     "text": "New employees choose a laptop from the standard catalogue (a 14-inch or 16-inch model). Laptops are replaced every three years, or earlier if repair costs exceed half the price of a new device.\n\nEvery employee also has a one-time home office budget of 600 EUR for a chair, desk, monitor or headset. Receipts are submitted through the expense tool.",
+     "heading": "Equipment",
+     "ordinal": 6
+    },
+    {
+     "id": "ch_af8fd6afb3d45765",
+     "text": "Each employee has a learning budget of 1,000 EUR per year for courses, books and conferences. Unused budget does not roll over. Conference travel is covered by the travel policy and does not count against the learning budget.",
+     "heading": "Learning budget",
+     "ordinal": 7
+    },
+    {
+     "id": "ch_b5279215ee48f98c",
+     "text": "Questions about this handbook go to People Operations in the #people-ops channel. Urgent matters outside business hours can be escalated to your manager.",
+     "heading": "Contacts",
+     "ordinal": 8
+    }
+   ]
+  },
+  {
+   "id": "demo-02",
+   "title": "Information Security Policy",
+   "source": "02-security-policy.md",
+   "lang": "en",
+   "chunks": [
+    {
+     "id": "ch_5a21f80da2afce8f",
+     "text": "> Fictional policy of Lumenfold Labs, written for the DocMind demo.",
+     "heading": "Information Security Policy",
+     "ordinal": 0
+    },
+    {
+     "id": "ch_e4b2faacca35801a",
+     "text": "All company accounts use single sign-on (SSO) with multi-factor authentication. Hardware security keys are mandatory for administrators and for anyone with production access; everyone else may use an authenticator app.\n\nPasswords for systems outside SSO must be at least 14 characters long and stored in the company password manager. Passwords are never shared in chat, email or tickets. Rotation is only required after a suspected compromise.",
+     "heading": "Accounts and passwords",
+     "ordinal": 1
+    },
+    {
+     "id": "ch_7402eda65aa0ddb0",
+     "text": "Company laptops must have full-disk encryption enabled, automatic screen lock after 5 minutes, and the latest operating system updates installed within 14 days of release. Personal devices may access email and chat through the mobile apps only; source code and customer data must never be stored on them.\n\nA lost or stolen device must be reported to the security team within one hour, so it can be locked and wiped remotely.",
+     "heading": "Devices",
+     "ordinal": 2
+    },
+    {
+     "id": "ch_857adedb3accc4e0",
+     "text": "We use three data classes:\n\n- **Public**: marketing pages, published documentation.\n- **Internal**: plans, internal wikis, most documents. Shared only inside the company.\n- **Confidential**: customer data, credentials, financial and personnel records. Access is granted per project and reviewed every quarter.\n\nConfidential data may only be processed in approved systems. Exporting it to spreadsheets or personal storage requires a written approval from the data owner.",
+     "heading": "Data classification",
+     "ordinal": 3
+    },
+    {
+     "id": "ch_f814a30f90c12fbb",
+     "text": "Report any suspected security incident — phishing, a leaked secret, unusual account activity — in the #security-incidents channel or by email to the security team. Do not investigate on your own and do not delete evidence. Reporting quickly is always the right call, even if it turns out to be a false alarm.",
+     "heading": "Reporting incidents",
+     "ordinal": 4
+    },
+    {
+     "id": "ch_6eec94c9e7b6e96b",
+     "text": "Team leads review who has access to their systems every quarter. Access is removed on the last working day when someone leaves the company.",
+     "heading": "Access reviews",
+     "ordinal": 5
+    }
+   ]
+  },
+  {
+   "id": "demo-03",
+   "title": "Onboarding Guide",
+   "source": "03-onboarding-guide.md",
+   "lang": "en",
+   "chunks": [
+    {
+     "id": "ch_6a9aba2a3a546ef0",
+     "text": "> Fictional onboarding guide of Lumenfold Labs for the DocMind demo.",
+     "heading": "Onboarding Guide",
+     "ordinal": 0
+    },
+    {
+     "id": "ch_495a9468b11e5b23",
+     "text": "People Operations sends your laptop so that it arrives at least two working days before your start date. You will receive an invitation to set up SSO and your password manager on your personal email.",
+     "heading": "Before day one",
+     "ordinal": 1
+    },
+    {
+     "id": "ch_789a078dc220820c",
+     "text": "- Day 1: welcome call with your manager, SSO and security-key setup, introduction to your onboarding buddy.\n- Day 2: product overview and architecture walkthrough.\n- Day 3: set up the development environment using the \"Getting started\" repository.\n- Day 4: pair-programming session with your buddy on a small real task.\n- Day 5: first retrospective with your manager: what went well, what was confusing.",
+     "heading": "First week",
+     "ordinal": 2
+    },
+    {
+     "id": "ch_a86ae57daa0c41d9",
+     "text": "Every new hire gets an onboarding buddy from a neighbouring team for the first 60 days. The buddy answers \"how do we do things here\" questions and meets you at least twice a week during the first month.",
+     "heading": "Onboarding buddy",
+     "ordinal": 3
+    },
+    {
+     "id": "ch_2e83042be690e949",
+     "text": "Your manager agrees on 30/60/90-day goals with you in the first two weeks. At the end of the 90 days there is a structured feedback conversation in both directions.",
+     "heading": "First 90 days",
+     "ordinal": 4
+    },
+    {
+     "id": "ch_03fb8376b855c32d",
+     "text": "We use a chat workspace for day-to-day communication, a shared wiki for documentation, an issue tracker for planning and a code hosting platform for all repositories. Access to all of them is granted automatically through SSO on day one.",
+     "heading": "Tools",
+     "ordinal": 5
+    }
+   ]
+  },
+  {
+   "id": "demo-04",
+   "title": "Travel and Expense Policy",
+   "source": "04-travel-and-expenses.md",
+   "lang": "en",
+   "chunks": [
+    {
+     "id": "ch_534024cd8ccd38b1",
+     "text": "> Fictional expense policy of Lumenfold Labs for the DocMind demo.",
+     "heading": "Travel and Expense Policy",
+     "ordinal": 0
+    },
+    {
+     "id": "ch_ef8c6b5ac0efde5e",
+     "text": "Spend company money as if it were your own. Expenses are submitted in the expense tool with a photo of the receipt within 30 days of the purchase. Reimbursements are paid with the next monthly salary.\n\nExpenses above 250 EUR need approval from your manager before the purchase.",
+     "heading": "General rules",
+     "ordinal": 1
+    },
+    {
+     "id": "ch_dce661077a8cdfff",
+     "text": "Book flights and hotels through the travel desk at least 14 days in advance when possible. Economy class is the default for flights shorter than six hours; for longer flights, premium economy is allowed.\n\nHotels should cost no more than 170 EUR per night in most cities, or 230 EUR per night in expensive cities such as London, Zurich or New York.",
+     "heading": "Travel",
+     "ordinal": 2
+    },
+    {
+     "id": "ch_3938b84eb581e4d8",
+     "text": "When travelling for work, you receive a daily meal allowance of 45 EUR. Team dinners during company events are paid by the company and do not reduce the allowance. Alcohol is not reimbursed except at official company events.",
+     "heading": "Meals and daily allowance",
+     "ordinal": 3
+    },
+    {
+     "id": "ch_0d2b6aad35239d9a",
+     "text": "Home office purchases and learning expenses follow the budgets in the Employee Handbook. Submit them in the expense tool under the matching category.",
+     "heading": "Home office and learning",
+     "ordinal": 4
+    },
+    {
+     "id": "ch_40eb6eda1780f16f",
+     "text": "Fines, personal entertainment subscriptions, upgrades paid for personal comfort and lost-luggage fees without an airline report are not reimbursed.",
+     "heading": "Non-reimbursable expenses",
+     "ordinal": 5
+    }
+   ]
+  },
+  {
+   "id": "demo-05",
+   "title": "Справочник сотрудника Lumenfold Labs",
+   "source": "05-spravochnik-sotrudnika-ru.md",
+   "lang": "ru",
+   "chunks": [
+    {
+     "id": "ch_39d352651027e409",
+     "text": "> Lumenfold Labs — вымышленная компания, созданная для демо DocMind. Любые совпадения с реальными организациями случайны.",
+     "heading": "Справочник сотрудника Lumenfold Labs",
+     "ordinal": 0
+    },
+    {
+     "id": "ch_f318c61f3fced01b",
+     "text": "Основные часы совместной работы — с 11:00 до 16:00 по местному времени. В остальное время вы планируете день самостоятельно, главное — чтобы команда знала, когда вы на связи.\n\nРаз в неделю у каждой команды «день фокуса» (обычно среда) без регулярных встреч.",
+     "heading": "Рабочее время",
+     "ordinal": 1
+    },
+    {
+     "id": "ch_64e908d709d79222",
+     "text": "Компания работает в формате remote-first: работать можно из любого места в стране трудоустройства. Работа из другой страны дольше 30 дней в календарном году согласуется с отделом People Operations из-за налоговых правил и страховки.",
+     "heading": "Удалённая работа",
+     "ordinal": 2
+    },
+    {
+     "id": "ch_c6cede519b470500",
+     "text": "Сотрудники на полной ставке получают 25 рабочих дней оплачиваемого отпуска в год. Заявку на отпуск длиннее трёх дней нужно подать в HR-портале не позднее чем за две недели.\n\nДо 5 неиспользованных дней отпуска переносятся на следующий год. Перенесённые дни нужно использовать до 31 марта, после этого они сгорают.",
+     "heading": "Отпуск",
+     "ordinal": 3
+    },
+    {
+     "id": "ch_fdb2c3fba01a71a4",
+     "text": "Если вы заболели, сообщите руководителю до 10:00 в первый день отсутствия. Справка от врача не нужна, если отсутствие длится не больше трёх дней подряд. Для более долгого больничного загрузите справку в HR-портал в течение пяти рабочих дней.",
+     "heading": "Больничный",
+     "ordinal": 4
+    },
+    {
+     "id": "ch_30f2b14ef37e0ae7",
+     "text": "Новые сотрудники выбирают ноутбук из стандартного каталога. Ноутбуки обновляются раз в три года. Также каждому сотруднику положен единовременный бюджет 600 EUR на обустройство домашнего рабочего места: кресло, стол, монитор или гарнитуру.",
+     "heading": "Оборудование",
+     "ordinal": 5
+    },
+    {
+     "id": "ch_6ed455c89daa15f1",
+     "text": "Бюджет на обучение — 1000 EUR в год на курсы, книги и конференции. Неиспользованный остаток на следующий год не переносится.",
+     "heading": "Обучение",
+     "ordinal": 6
+    }
+   ]
+  },
+  {
+   "id": "demo-06",
+   "title": "Политика информационной безопасности",
+   "source": "06-bezopasnost-ru.md",
+   "lang": "ru",
+   "chunks": [
+    {
+     "id": "ch_667d42afc1d42667",
+     "text": "> Вымышленная политика компании Lumenfold Labs для демо DocMind.",
+     "heading": "Политика информационной безопасности",
+     "ordinal": 0
+    },
+    {
+     "id": "ch_2d2fb2754502e6a7",
+     "text": "Все рабочие аккаунты используют единый вход (SSO) с двухфакторной аутентификацией. Аппаратные ключи безопасности обязательны для администраторов и всех, у кого есть доступ к продакшену.\n\nПароли для систем вне SSO должны быть не короче 14 символов и храниться в корпоративном менеджере паролей. Пароли никогда не пересылаются в чатах, письмах или тикетах.",
+     "heading": "Учётные записи и пароли",
+     "ordinal": 1
+    },
+    {
+     "id": "ch_25c5faf471bb1d32",
+     "text": "На рабочих ноутбуках должно быть включено полное шифрование диска и автоблокировка экрана через 5 минут. Обновления операционной системы устанавливаются не позднее 14 дней после выхода.\n\nО потере или краже устройства нужно сообщить команде безопасности в течение одного часа, чтобы его можно было удалённо заблокировать и очистить.",
+     "heading": "Устройства",
+     "ordinal": 2
+    },
+    {
+     "id": "ch_eb113d3b0c5b9fde",
+     "text": "- **Публичные**: маркетинговые страницы, опубликованная документация.\n- **Внутренние**: планы, внутренняя вики, большинство документов.\n- **Конфиденциальные**: данные клиентов, учётные данные, финансовые и кадровые сведения. Доступ выдаётся под проект и пересматривается раз в квартал.",
+     "heading": "Классификация данных",
+     "ordinal": 3
+    },
+    {
+     "id": "ch_5873d5566fa95d0e",
+     "text": "О любом подозрительном событии — фишинге, утечке секрета, странной активности в аккаунте — сообщайте в канал #security-incidents. Не расследуйте самостоятельно и не удаляйте следы. Лучше сообщить о ложной тревоге, чем промолчать.",
+     "heading": "Инциденты",
+     "ordinal": 4
+    }
+   ]
+  }
+ ]
+}

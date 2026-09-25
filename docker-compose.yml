@@ -1,0 +1,64 @@
+# DocMind full stack: Postgres + pgvector, FastAPI API, web UI and (optional) Telegram bot.
+#   cp .env.example .env && docker compose up --build
+#   UI:  http://localhost:8080   API docs: http://localhost:8000/docs
+#   Bot: docker compose --profile telegram up --build
+name: docmind
+
+x-api-env: &api-env
+  DOCMIND_ENV: prod
+  DOCMIND_DATABASE_URL: postgresql+asyncpg://docmind:docmind@db:5432/docmind
+  DOCMIND_VECTOR_STORE: pgvector
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: docmind
+      POSTGRES_PASSWORD: docmind
+      POSTGRES_DB: docmind
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docmind -d docmind"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *api-env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_DOCMIND_MODE: api
+        VITE_DOCMIND_API_KEY: ${DOCMIND_BOOTSTRAP_API_KEY:-}
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+  bot:
+    build: ./backend
+    profiles: ["telegram"]
+    command: ["python", "-m", "docmind.bot"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DOCMIND_TELEGRAM_API_URL: http://api:8000
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
