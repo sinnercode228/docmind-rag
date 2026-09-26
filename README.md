@@ -1,5 +1,7 @@
 # DocMind
 
+**Русский** · [English](README.en.md)
+
 Загружаешь PDF, DOCX, Markdown, HTML, TXT или ссылку и задаёшь вопрос; ответ идёт потоком с пометками `[1]`, `[2]`, а клик по пометке прокручивает к карточке с фрагментом источника и подсвеченным предложением. Бэкенд на FastAPI (Python 3.12+, SQLAlchemy async, SQLite или Postgres + pgvector) индексирует документы в фоне; к нему есть CLI, Telegram-бот на aiogram 3 и веб-интерфейс на React 19, TypeScript, Vite и Tailwind v4. Без ключей отвечает детерминированный `FakeLLM` цитатами из найденного, а Claude через Anthropic SDK или OpenAI-совместимый API подключаются переменными окружения.
 
 Демо: https://sinnercode228.github.io/docmind-rag/ (работает целиком в браузере). В базе шесть документов придуманной компании Lumenfold Labs, четыре на английском и два на русском; для начала подойдёт `What is the learning budget?`.
@@ -126,4 +128,6 @@ make test && make lint   # ruff, ruff format --check, mypy (strict); eslint, tsc
 
 Без тестов остались хранилище pgvector, Telegram-бот и CLI: в отчёте покрытия у них 0%. CI ([`ci.yml`](.github/workflows/ci.yml)) на Python 3.13 и Node 22 гоняет линтеры, типы, тесты, сборку демо и `docker compose build`; [`pages.yml`](.github/workflows/pages.yml) выкладывает демо.
 
-MIT. [sinnercode228](https://github.com/sinnercode228), Telegram [@sinnercode](https://t.me/sinnercode).
+---
+
+Автор — Грешный Котик, беру заказы на похожие задачи: Telegram [@sinnercode](https://t.me/sinnercode). Лицензия [MIT](LICENSE).
