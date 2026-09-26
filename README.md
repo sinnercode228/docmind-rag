@@ -1,193 +1,129 @@
-# DocMind — RAG-ассистент по документам
+# DocMind
 
-[![CI](https://github.com/sinnercode228/docmind-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/sinnercode228/docmind-rag/actions/workflows/ci.yml)
-[![Pages](https://github.com/sinnercode228/docmind-rag/actions/workflows/pages.yml/badge.svg)](https://sinnercode228.github.io/docmind-rag/)
-![Python](https://img.shields.io/badge/python-3.12%2B-3776ab)
-![TypeScript](https://img.shields.io/badge/typescript-strict-3178c6)
-![License](https://img.shields.io/badge/license-MIT-green)
+Загружаешь PDF, DOCX, Markdown, HTML, TXT или ссылку и задаёшь вопрос; ответ идёт потоком с пометками `[1]`, `[2]`, а клик по пометке прокручивает к карточке с фрагментом источника и подсвеченным предложением. Бэкенд на FastAPI (Python 3.12+, SQLAlchemy async, SQLite или Postgres + pgvector) индексирует документы в фоне; к нему есть CLI, Telegram-бот на aiogram 3 и веб-интерфейс на React 19, TypeScript, Vite и Tailwind v4. Без ключей отвечает детерминированный `FakeLLM` цитатами из найденного, а Claude через Anthropic SDK или OpenAI-совместимый API подключаются переменными окружения.
 
-**Живое демо:** https://sinnercode228.github.io/docmind-rag/ (работает без сервера, см. «Демо-режим»)
+Демо: https://sinnercode228.github.io/docmind-rag/ (работает целиком в браузере). В базе шесть документов придуманной компании Lumenfold Labs, четыре на английском и два на русском; для начала подойдёт `What is the learning budget?`.
 
-> **Демо-проект.** DocMind и компания Lumenfold Labs вымышлены; все документы в `sample-kb/` написаны специально для демо.
+![Ответ с цитатами в демо-режиме](docs/screenshots/02-answer-citations.png)
 
-[English version below](#english)
+Ответ в демо собран без LLM, по одному подсвеченному предложению из источника; карточки 2–4 не прошли пороги отбора, поэтому вторая половина вопроса, про конференцию, осталась без ответа.
 
-![Ответ с цитатами](docs/screenshots/02-answer-citations.png)
+## Что происходит, когда задаёшь вопрос
 
-## Что это
-
-DocMind — сервис вопросов и ответов по вашим документам (retrieval-augmented generation). Загружаете PDF, DOCX, Markdown или ссылку на страницу, задаёте вопрос и получаете потоковый ответ с пронумерованными ссылками `[1]`, `[2]`. У каждой ссылки есть фрагмент источника, в котором подсвечено предложение, на которое опирается ответ.
-
-| Слой | Что внутри |
-|---|---|
-| **Загрузка** | PDF (pypdf, номера страниц), DOCX (включая таблицы), Markdown/HTML/TXT, URL с защитой от SSRF. Индексация идёт в фоне: очередь задач, повторные попытки, статусы `queued → processing → ready/failed` |
-| **Чанкинг** | Разбивка с учётом заголовков и нахлёстом; у каждого чанка сохраняются заголовок и страница |
-| **Эмбеддинги** | Офлайн hashing-эмбеддер (детерминированный, без скачивания моделей) или любой OpenAI-совместимый `/embeddings` |
-| **Векторное хранилище** | `pgvector` (Postgres, в docker compose) или in-memory на numpy со снапшотами (для разработки и тестов) |
-| **Поиск** | Плотный поиск кандидатов `fetch_k`, затем MMR-переранжирование до `top_k`; фильтр по выбранным документам |
-| **LLM** | Одна абстракция `LLMProvider` и три реализации: Anthropic Claude SDK, OpenAI-совместимый API (Ollama, vLLM, LM Studio…) и детерминированный `Fake` для тестов и демо |
-| **API** | FastAPI, стриминг через SSE (`meta → sources → delta… → done`), авторизация по API-ключу (`X-API-Key` или Bearer), мультитенантность, история диалогов, OpenAPI на `/docs` |
-| **Telegram** | Адаптер на aiogram 3: бот ходит в API как обычный клиент (`/new`, `/help`, вопросы текстом, ответы с источниками) |
-| **Фронтенд** | Vite + React 19 + TypeScript (strict) + Tailwind v4: чат со стримингом, панель загрузки (drag-and-drop, URL), карточки цитат с подсветкой, история чатов, выбор документов для поиска, тёмная тема |
-
-## Архитектура
+Ответ идёт по SSE, события приходят в порядке `meta → sources → delta… → done`; если что-то упало уже после старта потока, приходит `error`. Так выглядит поток от `make api` с загруженным `sample-kb/` на вопрос `What is the learning budget?` (сокращено):
 
 ```
-             ┌──────────── web (React) ────────────┐        ┌── Telegram (aiogram) ──┐
-             │ HttpClient ──SSE──►   │ DemoClient  │        │   bot → HTTP client    │
-             └──────────┬──────────┴──────────────┘         └───────────┬────────────┘
-                        │ /v1/*  X-API-Key                              │
-                  ┌─────▼──────────────── FastAPI ───────────────────────▼─────┐
-                  │ routes → RagService ──► Retriever (dense + MMR) ─► VectorStore
-                  │            │                                  (pgvector | memory)
-                  │            └──► LLMProvider (Claude | OpenAI-compat | Fake)
-                  │ JobRunner (фоновая индексация) → loaders → chunking → Embedder
-                  └──────────── SQLAlchemy (Postgres | SQLite): tenants, docs, jobs, chats
+event: meta
+data: {"conversation_id": "cv_…", "user_message_id": "msg_…"}
+
+event: sources
+data: {"citations": [{"index": 1, "document_title": "Lumenfold Labs Employee Handbook", "snippet": "Each employee has a learning budget of 1,000 EUR per year…", "score": 0.4292, "heading": "Learning budget", "highlight": [0, 93], …}, …]}
+
+event: delta
+data: {"text": "Here "}
+…
+event: done
+data: {"message_id": "msg_…", "answer": "…", "cited": [1, 2], "model": "fake-extractive", "stop_reason": "end_turn", "usage": {"input_tokens": null, "output_tokens": 56}}
 ```
 
-Зависимости собираются в одном `Container` (`backend/src/docmind/container.py`), поэтому в тестах любой компонент заменяется фейком: сеть не нужна, Docker не нужен.
+1. [`useChat`](frontend/src/state/useChat.ts) через [`HttpClient.chat`](frontend/src/api/httpClient.ts) шлёт `POST /v1/chat/stream` с ключом в `X-API-Key`; в теле вопрос, `conversation_id` и выбранные `document_ids`. Поток читаю через `fetch`, потому что `EventSource` умеет лишь GET без своих заголовков.
+2. Парсер [`lib/sse.ts`](frontend/src/lib/sse.ts) приводит CRLF к `\n`, склеивает многострочный `data:`, держит в буфере сообщение, разрезанное между чанками, и дочитывает последнее, если поток закрылся без пустой строки; эти случаи разобраны в [`sse.test.ts`](frontend/src/lib/sse.test.ts). Байты декодирует `TextDecoder` с `stream: true`, и разрезанная между чанками кириллическая буква не превращается в `�`.
+3. [`routes_chat.py`](backend/src/docmind/api/routes_chat.py) проверяет `conversation_id` до открытия потока, так что на несуществующий или чужой разговор приходит обычный 404. Потом вопрос сохраняется и уходит `meta`; статус 200 к этому моменту уже отправлен, и дальнейшие ошибки идут событием `error`. Историю фронт не пересылает: последние 4 пары вопрос–ответ бэкенд достаёт из своей базы сам.
+4. [`Retriever`](backend/src/docmind/retrieval/retriever.py) берёт ближайшие к вопросу чанки по косинусу, отбрасывает слабые и дубли по тексту, и MMR оставляет из них 5. Эмбеддер по умолчанию лексический — feature hashing слов, биграмм и символьных триграмм ([`hashing.py`](backend/src/docmind/embeddings/hashing.py)), и «ближайший» здесь значит «с похожими словами», а не «о том же».
+5. Источники уходят событием `sources` до вызова модели ([`rag/service.py`](backend/src/docmind/rag/service.py)). Карточки видны раньше первого токена, а `[n]` в потоке сразу становится кнопкой; номер больше числа источников остаётся текстом ([`AnswerText.tsx`](frontend/src/components/AnswerText.tsx)). Предложение для подсветки [`best_sentence`](backend/src/docmind/text.py) выбирает по общим словам с вопросом, а не с ответом, и с настоящей LLM подсвеченным может оказаться не то предложение, на которое опиралась модель.
+6. Дальше идут `delta` с кусками текста. В `done` приходят полный ответ, `model`, `stop_reason`, usage и `cited` (номера `[n]` из ответа, не больше числа источников). У процитированных карточек номер закрашивается, ответ сохраняется в базу вместе с источниками, и у каждого проставлен флаг `cited`. Порядок событий задаёт один async-генератор `_chat_events`; нестриминговый `/v1/chat` прогоняет его до конца и собирает из событий JSON, так что логика двух эндпоинтов не расходится.
 
-## Демо-режим (GitHub Pages)
+Каждый запрос к `/v1` идёт с ключом тенанта, в `X-API-Key` или как Bearer. В базе лежит только sha256 ключа, документы, векторы и разговоры выбираются с фильтром по `tenant_id`. `test_tenants_are_isolated` в [`test_api.py`](backend/tests/test_api.py) проверяет, что с чужим ключом документ не найти ни в списке, ни по id, ни поиском.
 
-Статическая сборка работает без бэкенда. Вместо `HttpClient` подключается `DemoClient` с тем же интерфейсом `DocMindClient`:
+В Docker между браузером и API стоит nginx. Для `/v1/` в [`frontend/nginx.conf`](frontend/nginx.conf) выключены `proxy_buffering` и `proxy_cache`, иначе nginx копил бы дельты в буфере и текст приходил бы пачками; `proxy_read_timeout` поднят до 300 с. Бэкенд вдобавок отвечает с `X-Accel-Buffering: no`; этот заголовок nginx читает из ответа upstream, и поток не застрянет даже за nginx с чужим конфигом.
 
-- заранее нарезанная база знаний: `docmind export-demo-kb sample-kb …` сохраняет чанки из `sample-kb/*.md` в `frontend/src/demo/kb.json`;
-- поиск прямо в браузере: BM25 со стеммингом для EN/RU и MMR-диверсификация;
-- ответы собираются по шаблону из цитат: лучшее предложение каждого релевантного источника плюс номер `[n]`. LLM нет, и интерфейс прямо об этом пишет;
-- можно добавить свои `.md`/`.txt`, они индексируются в браузере. PDF, DOCX и URL требуют настоящего API.
+Telegram-бот ([`bot/telegram.py`](backend/src/docmind/bot/telegram.py)) ходит в тот же `/v1/chat/stream` как обычный клиент и стримит ответ правкой одного сообщения, не чаще раза в 1.2 с ([`bot/service.py`](backend/src/docmind/bot/service.py)). Markdown из ответа переводится в HTML-разметку Telegram; если Telegram её не принимает (`TelegramBadRequest`), финальная правка повторяется с `parse_mode=None`.
 
-Переключиться на реальный API можно через **Settings** в интерфейсе (URL и ключ хранятся в `localStorage`) или при сборке: `VITE_DOCMIND_MODE=api`, `VITE_DOCMIND_API_URL`, `VITE_DOCMIND_API_KEY`. Параметр `?q=вопрос` в ссылке сразу задаёт вопрос.
+## Нарезка на чанки
 
-## Быстрый старт
+Загрузчик ([`loaders.py`](backend/src/docmind/ingestion/loaders.py)) на pypdf, python-docx и BeautifulSoup сначала делит документ на секции: Markdown по заголовкам, DOCX по стилям `Heading*` (все таблицы дописываются в конец последней секции строками `ячейка | ячейка`), HTML по `h1`–`h4` после удаления `nav`, `footer`, `script` и прочей обвязки, PDF по страницам. TXT, Markdown и HTML декодируются по цепочке utf-8 → cp1251 → latin-1, и русский `.txt` в cp1251 читается как есть.
 
-**Требования:** Python 3.12+ (проверено на 3.14), Node 20+ (проверено на 25).
+Сплиттер ([`chunking.py`](backend/src/docmind/ingestion/chunking.py)) работает внутри одной секции и через её границу не переходит, поэтому у чанка всегда один заголовок и одна страница. По умолчанию 900 символов на чанк и 150 перекрытия (`DOCMIND_CHUNK_SIZE`, `DOCMIND_CHUNK_OVERLAP`), демо-база экспортируется с 700/100.
+
+- Режет рекурсивно: сначала по `\n\n`; если кусок всё ещё больше лимита, по `\n`, потом по `. `, `? `, `! `, `; `, `, ` и пробелу. Когда разделителей не осталось, режет по длине.
+- Потом жадно склеивает соседние куски обратно, пока чанк влезает в `chunk_size`.
+- Перекрытие делается шагом назад по целым кускам и не превышает `chunk_overlap`. Шаг назад ограничен условием `k - 1 > i`: следующий чанк начинается хотя бы на один кусок дальше предыдущего и цикл не зависает; `test_chunks_respect_size_and_cover_text` проверяет это на каждой паре соседних чанков.
+- Текст режется только до уровня, на котором куски влезают в `chunk_size`. Если абзацы короче лимита, кусками остаются целые абзацы, и перекрытие появляется, только когда последний абзац чанка не длиннее `chunk_overlap`. В `sample-kb` каждая секция и так помещается в один чанк (39 секций, 39 чанков), перекрытий там нет.
+- Для Markdown в `heading` пишется путь по заголовкам, например `Time off › Paid vacation`. H1 считается названием документа и в путь не попадает, если под ним есть подзаголовок. `#` внутри блока кода заголовком не считается.
+
+## SSRF при загрузке по ссылке
+
+URL скачивается в фоновой задаче через [`fetch.py`](backend/src/docmind/ingestion/fetch.py):
+
+- схемы только `http` и `https`, URL с `user:pass@` отклоняется;
+- хост резолвится, и все его адреса должны быть глобальными: если имя отдаёт один публичный IP и `127.0.0.1`, запрос не уходит. Проверенный IP при этом не фиксируется, и при подключении httpx резолвит имя заново, оставляя между проверкой и запросом окно для DNS rebinding;
+- редиректы httpx сам не проходит (`follow_redirects=False`), каждый `Location` заново проверяется тем же guard, максимум 5 переходов;
+- размер проверяется по `Content-Length` до чтения тела и по факту во время потокового чтения, лимит как у загрузки файла, 20 МБ. Таймаут httpx 15 с действует на каждую операцию, общего лимита на время скачивания нет.
+
+В [`test_fetch.py`](backend/tests/test_fetch.py) есть `ftp://` и `file://`, адреса `10.0.0.7` и `169.254.169.254`, редирект с публичного хоста на `169.254.169.254`, петля редиректов и ответ с `Content-Length` больше лимита. Отклонённая ссылка API не роняет: документ получает статус `failed` с текстом ошибки (`test_url_blocked_by_ssrf_guard_fails_job` в [`test_api.py`](backend/tests/test_api.py)). Для внутренней сети проверку выключает `DOCMIND_ALLOW_PRIVATE_URLS=true`.
+
+## Демо-клиент на BM25
+
+Сборка для Pages (`npm run build:pages`) берёт `VITE_DOCMIND_MODE=demo` из [`.env.pages`](frontend/.env.pages), и UI получает вместо `HttpClient` [`DemoClient`](frontend/src/demo/demoClient.ts). Оба реализуют `DocMindClient`, демо-клиент отдаёт события в том же порядке, и `useChat` про подмену не знает. Свои `.md` и `.txt` до 2 МБ можно добавить прямо в браузере; PDF, DOCX и ссылки требуют API. На настоящий бэкенд переключает диалог Settings, адрес и ключ сохраняются в `localStorage`.
+
+База знаний лежит в [`kb.json`](frontend/src/demo/kb.json). Её делает `docmind export-demo-kb` (`make demo-kb`) из `sample-kb/*.md` теми же загрузчиками и `chunk_document`, что и сервер: 6 документов, 39 чанков. Файлы обходятся в порядке сортировки имён, id чанка — blake2b от id документа, порядкового номера и текста, поэтому повторный экспорт даёт тот же файл байт в байт.
+
+Поиск идёт в браузере: BM25 (k1 = 1.4, b = 0.75) по стеммированным словам, заголовок индексируется вместе с текстом ([`bm25.ts`](frontend/src/lib/bm25.ts)). Из 16 кандидатов MMR по сходству Жаккара между наборами слов оставляет 4. Токенизация, суффиксный стеммер для русского и английского и выбор предложения портированы из `text.py` в [`text.ts`](frontend/src/lib/text.ts). Ответ собирается по шаблону: подсвеченное предложение источника плюс `[n]`, не больше трёх пунктов. Источник с нормированным score ниже 0.35 пропускается, а каждый следующий пункт должен покрывать не меньше 75% от числа слов вопроса, которые покрыл первый. Язык ответа, как и у `FakeLLM`, выбирается по кириллице в вопросе.
+
+## Что упрощено
+
+- Поиск на бэкенде векторный с MMR, без гибрида и реранкера; BM25 есть только в браузерном демо.
+- Упавшая индексация сама не повторяется и остаётся `failed` до `POST /v1/documents/{id}/reindex`; после рестарта в очередь снова встают только незавершённые задачи ([`runner.py`](backend/src/docmind/jobs/runner.py)).
+- От prompt injection защищает одна строка в системном промпте ([`prompt.py`](backend/src/docmind/rag/prompt.py)); название и расположение источника экранируются, сам текст фрагмента уходит в модель как есть.
+- Схема создаётся через `create_all`, миграций нет. `content_hash` пишется, но не проверяется, поэтому повторно загруженный файл индексируется ещё раз.
+
+## Запуск
+
+Быстрее всего посмотреть демо по ссылке выше. Локально с бэкендом:
 
 ```bash
-make setup          # backend/.venv + npm install
-make api            # API: http://localhost:8000/docs  (SQLite, in-memory векторы, Fake LLM, ключ dm_local_dev_key)
-make web            # UI:  http://localhost:5173       (режим api, прокси /v1 → :8000)
+make setup                                        # backend/.venv + npm install
+DOCMIND_MEMORY_STORE_PATH=data/vectors make api   # http://localhost:8000/docs: SQLite, FakeLLM, ключ dm_local_dev_key
+make web                                          # http://localhost:5173: UI в режиме api, Vite проксирует /v1 на :8000
 ```
 
-Индексация и вопросы из CLI:
+Без `DOCMIND_MEMORY_STORE_PATH` векторы живут только в памяти процесса: после перезапуска API (в том числе от `--reload` при правке кода) документы в SQLite числятся `ready`, а поиск пустой. С переменной хранилище после каждого изменения пишет снапшот в `backend/data/vectors` (`data/` в `.gitignore`). CLI `ingest` и `ask` запускаются отдельными процессами, и им переменная нужна обязательно:
 
 ```bash
 cd backend
+export DOCMIND_MEMORY_STORE_PATH=data/vectors
 .venv/bin/docmind ingest --api-key dm_local_dev_key ../sample-kb
 .venv/bin/docmind ask --api-key dm_local_dev_key "How many vacation days do employees get?"
 ```
 
-Настоящая LLM (переменные окружения или `backend/.env`, полный список в `.env.example`):
+По умолчанию отвечает `FakeLLM`: из найденных фрагментов по очереди берёт лучшее предложение (не больше трёх) и ставит к нему `[n]`. Настоящая модель подключается переменными окружения или через `backend/.env`:
 
 ```bash
 DOCMIND_LLM_PROVIDER=anthropic DOCMIND_ANTHROPIC_API_KEY=... make api
-# или любой OpenAI-совместимый сервер, например Ollama:
 DOCMIND_LLM_PROVIDER=openai DOCMIND_OPENAI_BASE_URL=http://localhost:11434/v1 DOCMIND_OPENAI_MODEL=llama3.1 make api
 ```
 
-**Docker (Postgres + pgvector, API, UI):**
+Провайдер Anthropic при `stop_reason: refusal` дописывает в ответ пометку, что модель отказалась отвечать. Для семантического поиска нужны `DOCMIND_EMBEDDER=openai`, OpenAI-совместимый `/embeddings` (`DOCMIND_EMBEDDING_BASE_URL`, `DOCMIND_EMBEDDING_MODEL`, `DOCMIND_EMBEDDING_API_KEY`) и `DOCMIND_EMBEDDING_DIM`, равный размерности модели: параметр `dimensions` в запрос не передаётся, а по умолчанию ожидается 384. В `.env.example` только основные переменные, полный список настроек лежит в [`config.py`](backend/src/docmind/config.py).
+
+Docker поднимает Postgres 17 с pgvector (HNSW-индекс по косинусу), API и UI за nginx. Compose передаёт `DOCMIND_BOOTSTRAP_API_KEY` в сборку фронта как `VITE_DOCMIND_API_KEY`, и ключ оказывается в JS-бандле; локально это удобно, но открывать такой стенд наружу нельзя (CORS по умолчанию тоже `*`), а ключ из `.env.example` стоит заменить на свой.
 
 ```bash
 cp .env.example .env
 docker compose up --build                      # UI: http://localhost:8080, API: http://localhost:8000/docs
-docker compose --profile telegram up --build   # плюс Telegram-бот (нужен DOCMIND_TELEGRAM_BOT_TOKEN)
+docker compose --profile telegram up --build   # плюс бот: нужны DOCMIND_TELEGRAM_BOT_TOKEN и DOCMIND_TELEGRAM_API_KEY
 ```
 
-Только демо-сборка: `cd frontend && npm run build:pages` (base `/docmind-rag/`).
+## Тесты
 
-## Пример API
-
-```bash
-KEY=dm_local_dev_key
-curl -H "X-API-Key: $KEY" -F file=@handbook.pdf http://localhost:8000/v1/documents        # 202 + job
-curl -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
-     -d '{"url":"https://example.com/docs"}' http://localhost:8000/v1/documents/url
-curl -N -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
-     -d '{"question":"What is the learning budget?"}' http://localhost:8000/v1/chat/stream
-```
-
-```
-event: meta     data: {"conversation_id": "cv_…"}
-event: sources  data: {"citations": [{"index": 1, "document_title": "…", "snippet": "…", "highlight": [0, 86], …}]}
-event: delta    data: {"text": "Each "}
-…
-event: done     data: {"answer": "…", "cited": [1], "model": "…", "stop_reason": "end_turn"}
-```
-
-Эндпоинты: `/v1/documents` (upload/url/text/list/get/delete/reindex), `/v1/jobs/{id}`, `/v1/chat`, `/v1/chat/stream`, `/v1/search`, `/v1/conversations`, `/v1/me`, `/v1/admin/tenants`, `/healthz`, `/readyz`.
-
-## Тесты и качество
-
-| | Инструменты | Результат |
+| | Что | Сколько |
 |---|---|---|
-| Backend | pytest + pytest-asyncio, фейки для LLM, эмбеддингов и HTTP (без сети и Docker); ruff; mypy `--strict` | **101 тест** |
-| Frontend | Vitest + Testing Library (jsdom); ESLint; `tsc` strict | **26 тестов** |
+| Backend | pytest + pytest-asyncio. LLM в тестах API — `FakeLLM`, эмбеддинги — офлайн-хэширование; клиенты Anthropic и OpenAI-совместимых API и `fetch.py` проверяются через `httpx.MockTransport`, DNS подменён. Сеть и Docker не нужны | 101 тест, покрытие 76% (с учётом веток) |
+| Frontend | Vitest + Testing Library: SSE-парсер, HTTP-клиент, BM25, текстовые утилиты, демо-клиент, App | 26 тестов |
 
 ```bash
-make test && make lint
+make test && make lint   # ruff, ruff format --check, mypy (strict); eslint, tsc
 ```
 
-CI (`.github/workflows/ci.yml`): линтеры, типы, тесты, сборка фронтенда и Docker-образов. Деплой демо (`.github/workflows/pages.yml`): GitHub Actions → `upload-pages-artifact` → `deploy-pages` (в настройках репозитория: Pages → Source: GitHub Actions).
+Без тестов остались хранилище pgvector, Telegram-бот и CLI: в отчёте покрытия у них 0%. CI ([`ci.yml`](.github/workflows/ci.yml)) на Python 3.13 и Node 22 гоняет линтеры, типы, тесты, сборку демо и `docker compose build`; [`pages.yml`](.github/workflows/pages.yml) выкладывает демо.
 
-## Скриншоты
-
-| Стартовый экран | Ответ на русском |
-|---|---|
-| ![Главная](docs/screenshots/01-home.png) | ![Русский ответ](docs/screenshots/03-russian-answer.png) |
-
-## Структура
-
-```
-backend/   FastAPI-приложение (src/docmind: api, ingestion, embeddings, vectorstore, retrieval, llm, rag, jobs, bot, db) + tests
-frontend/  Vite + React + TS + Tailwind (src/api, src/demo, src/lib, src/components, src/state)
-sample-kb/ вымышленный справочник Lumenfold Labs (EN + RU) для демо
-docs/      скриншоты
-```
-
----
-
-<a id="english"></a>
-
-# DocMind: RAG document assistant (English)
-
-**Live demo:** https://sinnercode228.github.io/docmind-rag/ (runs without a server in demo mode)
-
-> **Demo project.** DocMind and Lumenfold Labs are fictional; every document in `sample-kb/` was written for this demo.
-
-DocMind answers questions about your documents. Upload PDFs, DOCX, Markdown or a web page, ask a question, and get a streamed answer with numbered citations. Each citation opens the source passage with the supporting sentence highlighted.
-
-**Backend (FastAPI, Python 3.12+):**
-- **Ingestion:** PDF (with page numbers), DOCX (including tables), Markdown, HTML, TXT and URLs (with an SSRF guard). Indexing runs as a background job with retries and status tracking.
-- **Retrieval pipeline:** heading-aware chunking with overlap, then embeddings (offline hashing embedder or any OpenAI-compatible `/embeddings`). Vectors go to **pgvector** or an in-memory numpy store. Retrieval takes the nearest candidates, then re-ranks them with **MMR**.
-- **LLMs:** one `LLMProvider` interface with three backends: the **Anthropic Claude SDK**, **OpenAI-compatible** servers (Ollama, vLLM and similar) and a deterministic **Fake** for tests and demos.
-- **API:** **SSE streaming** (`meta → sources → delta… → done`), **API-key auth** with multi-tenancy, conversation history and OpenAPI docs at `/docs`.
-- **Telegram:** an **aiogram 3** bot that uses the API like any other client.
-
-**Frontend (Vite, React 19, strict TypeScript, Tailwind v4):**
-- Streaming chat with a stop button.
-- Upload panel with drag-and-drop and URL ingest, plus live ingestion status.
-- Citation cards with highlighted snippets.
-- Local chat history, per-document scoping and a dark theme.
-
-**Demo mode (GitHub Pages).** `DemoClient` implements the same `DocMindClient` interface as the HTTP client. It ships a pre-chunked fictional handbook, exported with `docmind export-demo-kb`. It ranks passages in the browser with BM25 (English and Russian stemming) plus MMR. Answers are **templated from quoted sentences**, with no LLM, and the UI labels them that way. You can add your own `.md` or `.txt` files in the browser. To use the real API, open **Settings** in the UI or build with `VITE_DOCMIND_MODE=api`.
-
-### Run
-
-```bash
-make setup     # backend venv + npm install
-make api       # http://localhost:8000/docs  (SQLite, in-memory vectors, Fake LLM, key dm_local_dev_key)
-make web       # http://localhost:5173
-docker compose up --build   # Postgres+pgvector, API :8000, UI :8080 (add --profile telegram for the bot)
-```
-
-Set `DOCMIND_LLM_PROVIDER=anthropic` with `DOCMIND_ANTHROPIC_API_KEY`, or `openai` with `DOCMIND_OPENAI_BASE_URL`, to get generated answers. All settings are listed in `.env.example`.
-
-### Quality
-
-- Backend: **101 pytest tests** (no network, no Docker), ruff, mypy `--strict`.
-- Frontend: **26 Vitest tests**, ESLint, strict `tsc`.
-- CI runs lint, type checks, tests and builds, including the Docker images.
-- The Pages demo is deployed by `.github/workflows/pages.yml`, using GitHub Actions as the Pages source.
-
-## License
-
-MIT. Author: [sinnercode228](https://github.com/sinnercode228) · Telegram [@sinnercode](https://t.me/sinnercode)
+MIT. [sinnercode228](https://github.com/sinnercode228), Telegram [@sinnercode](https://t.me/sinnercode).
