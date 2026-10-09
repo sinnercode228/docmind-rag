@@ -14,6 +14,32 @@ All the data is made up. Lumenfold Labs does not exist: I wrote the six handbook
 
 The demo answer above was assembled without an LLM, from one highlighted sentence per source. Card 2 scored 0.47 but was dropped by the coverage rule described under the demo below, and cards 3 and 4 fell under the 0.35 score threshold, so the second half of the question, about booking a conference, went unanswered.
 
+## The ingest path and the ask path
+
+A document and a question go through separate code paths that meet at the vector store. Indexing runs as a background job; answering is one `POST /v1/chat/stream` response that carries the sources before the model's first token.
+
+```mermaid
+flowchart TD
+    subgraph ingest["Ingest, background job"]
+        F["File upload or URL"] --> P["loaders.py: extract text into sections"]
+        P --> K["chunking.py: 900 chars, 150 overlap"]
+        K --> E1["embed_documents"]
+    end
+    subgraph ask["Ask, POST /v1/chat/stream"]
+        Q["Question"] --> E2["embed_query"]
+        E2 --> R["Retriever: 24 nearest, dedupe, MMR to 5"]
+        R --> SRC["sources event, before the model is called"]
+        SRC --> D["delta events: model tokens with [n]"]
+        D --> DN["done event: answer and cited numbers"]
+    end
+    E1 --> S[("pgvector or in-memory store")]
+    R -- "cosine search" --> S
+    DN --> UI["React web UI"]
+    DN --> BOT["Telegram bot"]
+```
+
+Write-up on how the event order, the `[n]` links and the BM25 demo work: [How DocMind sends sources before the first token and links \[n\] markers mid-stream](https://github.com/sinnercode228/sinnercode228/blob/main/notes/docmind-sources-before-tokens.md).
+
 ## Why do the sources have to reach the screen before the first answer token?
 
 This is the problem the rest of the design follows from. The answer streams and cites inline: `Employees get 25 working days [1]`. If the citation list arrived with the final event, the reader would spend the whole stream looking at `[1]` badges that point at nothing, and the UI could not tell a real `[7]` from one the model made up. So the order of events on `POST /v1/chat/stream` is fixed: `meta → sources → delta… → done`, plus `error` if something fails after the stream has started. This is the stream from `make api` with `sample-kb/` loaded, for `What is the learning budget?` (trimmed):
@@ -245,7 +271,7 @@ Built by Грешный Котик ([sinnercode228](https://github.com/sinnercod
 
 DocMind — ассистент вопросов и ответов по документам (RAG). Бэкенд на FastAPI индексирует в фоне PDF, DOCX, Markdown, HTML, текст и ссылки; векторы лежат в pgvector или в памяти процесса. Ответ дают Claude через официальный SDK, любой OpenAI-совместимый сервер (Ollama, vLLM, LM Studio) или детерминированный `FakeLLM`, который собирает ответ из цитат и работает без ключа. Веб-клиент на React показывает ответ потоком, карточки источников и подсвеченное предложение; Telegram-бот ходит в тот же HTTP API, а CLI использует то же ядро напрямую.
 
-Главное решение: карточки источников появляются на экране раньше первого токена ответа, иначе ссылки `[1]`, `[2]` в тексте ведут в пустоту, пока идёт стрим. Поэтому порядок событий SSE жёсткий: `meta → sources → delta… → done`, поиск выполняется до вызова модели, а в `done` приходит список номеров, на которые ответ действительно сослался. Подсветка передаётся смещениями внутри фрагмента, а не копией текста.
+Главное решение: карточки источников появляются на экране раньше первого токена ответа, иначе ссылки `[1]`, `[2]` в тексте ведут в пустоту, пока идёт стрим. Поэтому порядок событий SSE жёсткий: `meta → sources → delta… → done`, поиск выполняется до вызова модели, а в `done` приходит список номеров, на которые ответ действительно сослался. Подсветка передаётся смещениями внутри фрагмента, а не копией текста. Подробный разбор: [Как DocMind отдаёт источники раньше первого токена и превращает \[n\] в ссылки на лету](https://github.com/sinnercode228/sinnercode228/blob/main/notes/docmind-sources-before-tokens.ru.md).
 
 Демо на GitHub Pages работает целиком в браузере: заранее нарезанная тем же сплиттером база (`frontend/src/demo/kb.json`), BM25 со стеммингом для русского и английского, MMR по Жаккару и шаблонный ответ из цитат. Модели там нет, и интерфейс об этом пишет. Компания Lumenfold Labs выдумана, документы в `sample-kb/` я написал для демо; это учебный проект, а не работа для заказчика.
 
