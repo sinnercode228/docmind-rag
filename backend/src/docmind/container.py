@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -19,6 +20,8 @@ from docmind.rag.service import RAGService
 from docmind.retrieval.retriever import RetrievalParams, Retriever
 from docmind.vectorstore.base import VectorStore
 
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class Container:
@@ -31,8 +34,15 @@ class Container:
     rag: RAGService
     ingestion: IngestionService
     jobs: JobRunner
+    #: Ready documents queued by ``start()`` because their vectors were missing from the store.
+    reindexing: int = 0
 
-    async def start(self) -> None:
+    async def start(self, *, run_jobs: bool = True) -> None:
+        """Create the schema and bootstrap tenant, then start the ingestion workers.
+
+        ``run_jobs=False`` is for one-shot commands that never wait for jobs (``create-tenant``):
+        they would otherwise flip ready documents to ``queued`` and exit before reindexing them.
+        """
         await create_schema(self.engine)
         if self.settings.bootstrap_api_key:
             async with self.sessions() as session:
@@ -40,9 +50,40 @@ class Container:
                     session, self.settings.bootstrap_api_key.get_secret_value()
                 )
                 await session.commit()
+        if not run_jobs:
+            return
+        self.reindexing = await self._queue_missing_vectors()
         self.jobs.start()
         async with self.sessions() as session:
             await self.jobs.recover(await repo.pending_job_ids(session))
+
+    async def _queue_missing_vectors(self) -> int:
+        """Create reindex jobs for ``ready`` documents whose vectors the store does not have.
+
+        The in-memory store starts empty in every new process (and a snapshot can be stale),
+        while SQLite still lists the documents as ``ready``. Their original bytes are kept in
+        ``document_blobs``, so the index is rebuilt from the database. A tenant is reindexed
+        when the store holds fewer chunks than its ready documents add up to.
+        """
+        queued = 0
+        async with self.sessions() as session:
+            for tenant_id, expected in (await repo.ready_chunk_totals(session)).items():
+                stored = await self.store.count(tenant_id)
+                if stored >= expected:
+                    continue
+                documents = await repo.ready_documents(session, tenant_id)
+                for document in documents:
+                    await repo.create_job(session, document)
+                queued += len(documents)
+                log.info(
+                    "vector store has %d of %d chunks for tenant %s; re-indexing %d document(s)",
+                    stored,
+                    expected,
+                    tenant_id,
+                    len(documents),
+                )
+            await session.commit()
+        return queued
 
     async def stop(self) -> None:
         await self.jobs.stop()

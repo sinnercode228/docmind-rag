@@ -3,6 +3,8 @@ import type { Citation } from '../api/types'
 
 interface Props {
   citation: Citation
+  /** DOM id the answer's [n] buttons scroll to; must be unique on the page. */
+  anchorId: string
   active?: boolean
   cited?: boolean
 }
@@ -48,12 +50,12 @@ function Excerpt({ text, highlight }: { text: string; highlight?: Citation['high
   )
 }
 
-export function CitationCard({ citation, active = false, cited = false }: Props) {
+export function CitationCard({ citation, anchorId, active = false, cited = false }: Props) {
   const [expanded, setExpanded] = useState(false)
   const long = citation.snippet.length > 260
   return (
     <div
-      id={`cite-${citation.chunk_id}`}
+      id={anchorId}
       className={`min-w-0 rounded-xl border p-3 text-sm transition ${
         active
           ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-200 dark:border-indigo-400 dark:bg-indigo-500/10 dark:ring-indigo-500/30'

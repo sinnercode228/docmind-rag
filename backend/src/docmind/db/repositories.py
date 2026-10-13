@@ -142,6 +142,25 @@ async def delete_document(session: AsyncSession, tenant_id: str, document_id: st
     await session.delete(document)
 
 
+async def ready_chunk_totals(session: AsyncSession) -> dict[str, int]:
+    """Chunks the vector store should hold per tenant: the sum over its ``ready`` documents."""
+    rows = await session.execute(
+        select(Document.tenant_id, func.sum(Document.chunk_count))
+        .where(Document.status == "ready")
+        .group_by(Document.tenant_id)
+    )
+    return {tenant_id: int(total or 0) for tenant_id, total in rows}
+
+
+async def ready_documents(session: AsyncSession, tenant_id: str) -> Sequence[Document]:
+    result = await session.scalars(
+        select(Document)
+        .where(Document.tenant_id == tenant_id, Document.status == "ready")
+        .order_by(Document.created_at)
+    )
+    return result.all()
+
+
 async def tenant_stats(session: AsyncSession, tenant_id: str) -> dict[str, int]:
     docs = await session.scalar(
         select(func.count()).select_from(Document).where(Document.tenant_id == tenant_id)

@@ -24,14 +24,24 @@ class ChatBackend(Protocol):
     ) -> AsyncIterator[tuple[str, dict[str, Any]]]: ...
 
 
-def markdown_to_telegram_html(text: str) -> str:
-    """Tiny Markdown subset -> Telegram HTML (escape first, then re-apply safe tags)."""
+def markdown_to_telegram_html(text: str, available: int | None = None) -> str:
+    """Tiny Markdown subset -> Telegram HTML (escape first, then re-apply safe tags).
+
+    ``[n]`` is set in bold only for ``1 <= n <= available``, the range the server counts as
+    cited; ``[0]`` or a number past the last source stays plain text.
+    """
     out = html.escape(text, quote=False)
     out = _CODE.sub(r"<code>\1</code>", out)
     out = _BOLD.sub(r"<b>\1</b>", out)
     out = _ITALIC.sub(r"<i>\1</i>", out)
     out = re.sub(r"^\s*[-*]\s+", "• ", out, flags=re.MULTILINE)
-    return _CITE.sub(r"<b>[\1]</b>", out)
+
+    def cite(match: re.Match[str]) -> str:
+        n = int(match.group(1))
+        in_range = n >= 1 and (available is None or n <= available)
+        return f"<b>{match.group(0)}</b>" if in_range else match.group(0)
+
+    return _CITE.sub(cite, out)
 
 
 def format_sources(citations: list[dict[str, Any]], cited: list[int]) -> str:
@@ -96,6 +106,6 @@ class BotService:
             if exc.status == 404:  # conversation was deleted server-side: start fresh
                 self.reset(chat_id)
             return f"Error: {html.escape(exc.message)}"
-        body = markdown_to_telegram_html("".join(parts).strip())
+        body = markdown_to_telegram_html("".join(parts).strip(), available=len(citations))
         sources = format_sources(citations, cited)
         return truncate(body + ("\n" + sources if sources else ""))

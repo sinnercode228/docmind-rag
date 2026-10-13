@@ -3,6 +3,11 @@ import type { ChatMessage } from '../state/history'
 import { AnswerText } from './AnswerText'
 import { CitationCard } from './CitationCard'
 
+/** Two answers in one conversation can retrieve the same chunk, so the id includes the message. */
+function citeAnchor(messageId: string, chunkId: string): string {
+  return `cite-${messageId}-${chunkId}`
+}
+
 export function MessageView({ message }: { message: ChatMessage }) {
   const [activeCite, setActiveCite] = useState<number | null>(null)
   if (message.role === 'user') {
@@ -20,7 +25,8 @@ export function MessageView({ message }: { message: ChatMessage }) {
   const showCitation = (n: number) => {
     setActiveCite(n)
     const target = citations.find((c) => c.index === n)
-    if (target) document.getElementById(`cite-${target.chunk_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    const card = target && document.getElementById(citeAnchor(message.id, target.chunk_id))
+    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   return (
@@ -59,7 +65,13 @@ export function MessageView({ message }: { message: ChatMessage }) {
             </summary>
             <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
               {citations.map((c) => (
-                <CitationCard key={c.chunk_id} citation={c} active={activeCite === c.index} cited={cited.has(c.index)} />
+                <CitationCard
+                  key={c.chunk_id}
+                  citation={c}
+                  anchorId={citeAnchor(message.id, c.chunk_id)}
+                  active={activeCite === c.index}
+                  cited={cited.has(c.index)}
+                />
               ))}
             </div>
           </details>

@@ -10,16 +10,30 @@ from pathlib import Path
 from typing import Any
 
 from docmind.config import Settings, get_settings
-from docmind.container import build_container
+from docmind.container import Container, build_container
 from docmind.db import repositories as repo
 from docmind.ingestion.chunking import chunk_document
 from docmind.ingestion.loaders import detect_mime_type, extract
 from docmind.rag.service import DeltaEvent, DoneEvent, SourcesEvent
 
 
+def _note(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def _note_reindexing(container: Container) -> None:
+    count = container.reindexing
+    if count:
+        plural = "" if count == 1 else "s"
+        _note(
+            f"re-indexing {count} document{plural} whose vectors are missing from the "
+            f"{container.settings.vector_store} vector store"
+        )
+
+
 async def cmd_create_tenant(settings: Settings, name: str) -> None:
     container = await build_container(settings)
-    await container.start()
+    await container.start(run_jobs=False)
     try:
         async with container.sessions() as session:
             tenant, key = await repo.create_tenant(session, name, label="cli")
@@ -34,6 +48,13 @@ async def cmd_create_tenant(settings: Settings, name: str) -> None:
 async def cmd_ingest(settings: Settings, api_key: str, paths: list[Path]) -> None:
     container = await build_container(settings)
     await container.start()
+    _note_reindexing(container)
+    if settings.vector_store == "memory" and not settings.memory_store_path:
+        _note(
+            "note: DOCMIND_MEMORY_STORE_PATH is not set, so these vectors live only in this "
+            "process; the next `docmind ask` or API start re-indexes the documents from the "
+            "database"
+        )
     try:
         async with container.sessions() as session:
             tenant = await repo.ensure_bootstrap_tenant(session, api_key)
@@ -72,11 +93,14 @@ async def cmd_ingest(settings: Settings, api_key: str, paths: list[Path]) -> Non
 async def cmd_ask(settings: Settings, api_key: str, question: str) -> None:
     container = await build_container(settings)
     await container.start()
+    _note_reindexing(container)
     try:
         async with container.sessions() as session:
             tenant = await repo.tenant_for_key(session, api_key)
         if tenant is None:
             raise SystemExit("Unknown API key")
+        # Answer from a complete index: wait for reindex jobs and any interrupted ingestion.
+        await container.jobs.join()
         async for event in container.rag.stream_answer(tenant.id, question):
             if isinstance(event, DeltaEvent):
                 sys.stdout.write(event.text)

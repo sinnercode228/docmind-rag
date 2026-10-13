@@ -8,7 +8,10 @@ interface Props {
 
 const INLINE = /(\[\d{1,2}\])|(\*\*[^*]+\*\*)|(`[^`]+`)|(_[^_\n]+_)/g
 
-/** Tiny, safe Markdown subset renderer: paragraphs, lists, bold/italic/code and [n] citations. */
+/**
+ * Tiny, safe Markdown subset renderer: paragraphs, lists, bold/italic/code and [n] citations.
+ * Only `[1]`..`[available]` become buttons, the same range the server counts as cited.
+ */
 export function AnswerText({ text, onCite, available = Infinity }: Props) {
   const blocks: ReactNode[] = []
   let list: string[] = []
@@ -52,7 +55,7 @@ function renderInline(text: string, onCite: Props['onCite'], available: number):
     if (match[1]) {
       const n = Number(token.slice(1, -1))
       out.push(
-        n <= available ? (
+        n >= 1 && n <= available ? (
           <button
             key={start}
             type="button"
