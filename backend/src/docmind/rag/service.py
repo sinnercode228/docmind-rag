@@ -13,7 +13,7 @@ from docmind.retrieval.retriever import Retriever
 from docmind.text import best_sentence
 
 TitleLookup = Callable[[str, Sequence[str]], Awaitable[dict[str, str]]]
-_CITE = re.compile(r"\[(\d{1,2})\]")
+_CITE = re.compile(r"\[(\d{1,2}(?:\s*,\s*\d{1,2})*)\]")
 
 
 @dataclass(slots=True, frozen=True)
@@ -40,7 +40,7 @@ RagEvent = SourcesEvent | DeltaEvent | DoneEvent
 
 
 def cited_indices(answer: str, available: int) -> list[int]:
-    found = {int(m) for m in _CITE.findall(answer)}
+    found = {int(num) for group in _CITE.findall(answer) for num in group.split(",")}
     return sorted(i for i in found if 1 <= i <= available)
 
 

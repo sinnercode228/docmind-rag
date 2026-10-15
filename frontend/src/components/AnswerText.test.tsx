@@ -19,6 +19,24 @@ describe('AnswerText', () => {
     expect(screen.getByText(/See \[0\] and/)).toBeInTheDocument()
   })
 
+  it('turns a grouped marker into one button per source', () => {
+    const onCite = vi.fn()
+    render(<AnswerText text="Both sources [1, 2] agree." available={2} onCite={onCite} />)
+    expect(citeButtons().map((b) => b.textContent)).toEqual(['1', '2'])
+  })
+
+  it('keeps out-of-range numbers in a group as text', () => {
+    render(<AnswerText text="See [1, 5]." available={2} />)
+    expect(citeButtons().map((b) => b.textContent)).toEqual(['1'])
+    expect(screen.getByText(/5/)).toBeInTheDocument()
+  })
+
+  it('keeps a fully out-of-range group as literal text', () => {
+    render(<AnswerText text="See [0, 9]." available={2} />)
+    expect(citeButtons()).toHaveLength(0)
+    expect(screen.getByText(/See \[0, 9\]\./)).toBeInTheDocument()
+  })
+
   it('reports the clicked source number', async () => {
     const onCite = vi.fn()
     render(<AnswerText text="Budget is 1,000 EUR [2]." available={2} onCite={onCite} />)
