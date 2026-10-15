@@ -6,7 +6,7 @@ interface Props {
   available?: number
 }
 
-const INLINE = /(\[\d{1,2}\])|(\*\*[^*]+\*\*)|(`[^`]+`)|(_[^_\n]+_)/g
+const INLINE = /(\[\d{1,2}(?:\s*,\s*\d{1,2})*\])|(\*\*[^*]+\*\*)|(`[^`]+`)|(_[^_\n]+_)/g
 
 /**
  * Tiny, safe Markdown subset renderer: paragraphs, lists, bold/italic/code and [n] citations.
@@ -53,22 +53,31 @@ function renderInline(text: string, onCite: Props['onCite'], available: number):
     if (start > last) out.push(text.slice(last, start))
     const token = match[0]
     if (match[1]) {
-      const n = Number(token.slice(1, -1))
-      out.push(
-        n >= 1 && n <= available ? (
-          <button
-            key={start}
-            type="button"
-            onClick={() => onCite?.(n)}
-            className="mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-indigo-100 px-1 align-text-top text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-600 hover:text-white dark:bg-indigo-500/20 dark:text-indigo-200"
-            aria-label={`Show source ${n}`}
-          >
-            {n}
-          </button>
-        ) : (
-          token
-        ),
-      )
+      // A citation can list several sources in one pair of brackets, e.g. [1, 2].
+      const nums = token.slice(1, -1).split(',').map((part) => Number(part.trim()))
+      const inRange = (n: number) => n >= 1 && n <= available
+      if (!nums.some(inRange)) {
+        out.push(token)
+      } else {
+        nums.forEach((n, i) => {
+          if (i > 0) out.push(', ')
+          out.push(
+            inRange(n) ? (
+              <button
+                key={`${start}-${i}`}
+                type="button"
+                onClick={() => onCite?.(n)}
+                className="mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-indigo-100 px-1 align-text-top text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-600 hover:text-white dark:bg-indigo-500/20 dark:text-indigo-200"
+                aria-label={`Show source ${n}`}
+              >
+                {n}
+              </button>
+            ) : (
+              String(n)
+            ),
+          )
+        })
+      }
     } else if (match[2]) {
       out.push(<strong key={start}>{token.slice(2, -2)}</strong>)
     } else if (match[3]) {
