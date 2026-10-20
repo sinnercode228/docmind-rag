@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from html import escape
 
 from docmind.domain import ChatTurn
@@ -30,13 +31,17 @@ def format_location(page: int | None, heading: str | None) -> str | None:
     return " · ".join(parts) or None
 
 
+# A chunk must not be able to open or close a <source>/<sources> tag of its own.
+_SOURCE_TAG = re.compile(r"<(?=/?\s*sources?\b)", re.IGNORECASE)
+
+
 def render_sources(sources: list[SourceBlock]) -> str:
     blocks = []
     for source in sources:
         location = f' location="{escape(source.location)}"' if source.location else ""
         blocks.append(
             f'<source index="{source.index}" title="{escape(source.title)}"{location}>\n'
-            f"{source.text}\n</source>"
+            f"{_SOURCE_TAG.sub('&lt;', source.text)}\n</source>"
         )
     return "<sources>\n" + "\n".join(blocks) + "\n</sources>"
 
