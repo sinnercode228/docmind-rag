@@ -7,6 +7,7 @@ no network, no model download) and a surprisingly decent baseline for keyword-he
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import itertools
 import math
@@ -59,6 +60,11 @@ class HashingEmbedder:
         return l2_normalize(vector)
 
     async def embed_documents(self, texts: list[str]) -> list[Vector]:
+        # CPU-bound hashing + numpy; dispatch to a worker thread so the ingest
+        # loop can serve other requests while a long document is embedded.
+        return await asyncio.to_thread(self._embed_many, texts)
+
+    def _embed_many(self, texts: list[str]) -> list[Vector]:
         return [self.embed(text) for text in texts]
 
     async def embed_query(self, text: str) -> Vector:
