@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 from pathlib import Path
 
@@ -56,6 +58,32 @@ class TestHashingEmbedder:
     def test_rejects_tiny_dimension(self) -> None:
         with pytest.raises(ValueError, match="dim"):
             HashingEmbedder(8)
+
+    async def test_embed_documents_yields_to_the_event_loop(self) -> None:
+        # The ingest pipeline runs extract in a worker thread and then awaits
+        # embed_documents on the same event loop; if embedding keeps the loop
+        # busy, nothing else on the API worker gets to run meanwhile.
+        emb = HashingEmbedder(384)
+        texts = [(CORPUS["vac"] + " ") * 400] * 40  # long enough to be slow
+
+        ticks = 0
+
+        async def ticker() -> None:
+            nonlocal ticks
+            while True:
+                ticks += 1
+                await asyncio.sleep(0)
+
+        ticker_task = asyncio.create_task(ticker())
+        await asyncio.sleep(0)
+        ticks_before = ticks
+        await emb.embed_documents(texts)
+        ticks_during = ticks - ticks_before
+        ticker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await ticker_task
+
+        assert ticks_during > 5, f"event loop was blocked; ticker advanced {ticks_during} times"
 
 
 async def test_openai_compatible_embedder_batches_and_sorts() -> None:
