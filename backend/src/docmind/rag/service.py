@@ -91,12 +91,21 @@ class RAGService:
         *,
         top_k: int | None = None,
         document_ids: Sequence[str] | None = None,
+        retrieval_query: str | None = None,
     ) -> list[Citation]:
         hits = await self._retriever.retrieve(
-            tenant_id, query, top_k=top_k, document_ids=document_ids
+            tenant_id, retrieval_query or query, top_k=top_k, document_ids=document_ids
         )
         titles = await self._titles(tenant_id, sorted({h.chunk.document_id for h in hits}))
         return to_citations(query, hits, titles)
+
+    @staticmethod
+    def _retrieval_query(question: str, history: Sequence[ChatTurn]) -> str:
+        """Prepend the recent user turns so a follow-up retrieves on its real subject."""
+        prior = [t.content.strip() for t in history if t.role == "user" and t.content.strip()]
+        if not prior:
+            return question
+        return "\n".join([*prior, question])
 
     async def stream_answer(
         self,
@@ -107,7 +116,14 @@ class RAGService:
         top_k: int | None = None,
         document_ids: Sequence[str] | None = None,
     ) -> AsyncIterator[RagEvent]:
-        citations = await self.search(tenant_id, question, top_k=top_k, document_ids=document_ids)
+        recent = list(history)[-self._history_turns * 2 :] if self._history_turns else []
+        citations = await self.search(
+            tenant_id,
+            question,
+            top_k=top_k,
+            document_ids=document_ids,
+            retrieval_query=self._retrieval_query(question, recent),
+        )
         yield SourcesEvent(citations)
 
         sources = [
@@ -119,7 +135,6 @@ class RAGService:
             )
             for c in citations
         ]
-        recent = list(history)[-self._history_turns * 2 :] if self._history_turns else []
         request = build_request(question, sources, recent, max_tokens=self._max_tokens)
 
         parts: list[str] = []
