@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import itertools
 
 import pytest
@@ -116,6 +117,25 @@ class TestLoaders:
         assert doc.title == "Remote Work Policy"
         assert [s.heading for s in doc.sections][:2] == ["Eligibility", "Budget"]
         assert "600 EUR" in doc.sections[-1].text
+
+    def test_docx_table_stays_in_its_section(self) -> None:
+        import docx
+
+        document = docx.Document()
+        document.add_heading("Pricing", level=1)
+        table = document.add_table(rows=1, cols=2)
+        table.rows[0].cells[0].text = "Basic"
+        table.rows[0].cells[1].text = "10 EUR"
+        document.add_heading("Contacts", level=1)
+        document.add_paragraph("Write to sales@example.com.")
+        buffer = io.BytesIO()
+        document.save(buffer)
+
+        doc = extract(buffer.getvalue(), mime_type=DOCX)
+        assert [(s.heading, s.text) for s in doc.sections] == [
+            ("Pricing", "Basic | 10 EUR"),
+            ("Contacts", "Write to sales@example.com."),
+        ]
 
     def test_html_strips_chrome_and_scripts(self) -> None:
         html = (

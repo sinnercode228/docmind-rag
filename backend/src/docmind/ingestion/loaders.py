@@ -143,6 +143,7 @@ def load_pdf(data: bytes, filename: str | None = None) -> ExtractedDocument:
 
 def load_docx(data: bytes, filename: str | None = None) -> ExtractedDocument:
     import docx
+    from docx.table import Table
 
     try:
         document = docx.Document(io.BytesIO(data))
@@ -160,9 +161,16 @@ def load_docx(data: bytes, filename: str | None = None) -> ExtractedDocument:
             sections.append(Section(text=body, heading=heading))
         buffer.clear()
 
-    for paragraph in document.paragraphs:
-        style = (paragraph.style.name if paragraph.style is not None else "") or ""
-        text = paragraph.text.strip()
+    # Walk the body in document order so a table stays under its own heading.
+    for block in document.iter_inner_content():
+        if isinstance(block, Table):
+            for row in block.rows:
+                cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                if cells:
+                    buffer.append(" | ".join(cells))
+            continue
+        style = (block.style.name if block.style is not None else "") or ""
+        text = block.text.strip()
         if not text:
             continue
         if style == "Title" and title is None:
@@ -172,11 +180,6 @@ def load_docx(data: bytes, filename: str | None = None) -> ExtractedDocument:
             heading = text
         else:
             buffer.append(text)
-    for table in document.tables:
-        for row in table.rows:
-            cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-            if cells:
-                buffer.append(" | ".join(cells))
     flush()
     return ExtractedDocument(
         title=title or _title_from(filename), sections=sections, mime_type=DOCX
